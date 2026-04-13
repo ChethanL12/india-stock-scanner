@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Link, useLocation } from "wouter";
 import * as XLSX from "xlsx";
 
 const API_BASE = "/api/india";
@@ -198,6 +199,7 @@ function CandidateRow({ c, rank }: { c: BreakoutCandidate; rank: number }) {
 }
 
 export default function IndiaScanner() {
+  const [location] = useLocation();
   const [universe, setUniverse] = useState<Universe>("nifty50");
   const [customSymbols, setCustomSymbols] = useState("");
   const [minSignals, setMinSignals] = useState(4);
@@ -290,6 +292,29 @@ export default function IndiaScanner() {
           <div className="ml-auto text-xs text-gray-500">
             Breakout detection · NIFTY universe
           </div>
+        </div>
+        {/* Tab bar */}
+        <div className="max-w-7xl mx-auto px-4 pb-0 flex gap-0">
+          <Link
+            href="/"
+            className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+              location === "/"
+                ? "border-orange-500 text-orange-400"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            📡 Breakout Scanner
+          </Link>
+          <Link
+            href="/patterns"
+            className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+              location === "/patterns"
+                ? "border-orange-500 text-orange-400"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            📐 Pattern Scanner
+          </Link>
         </div>
       </div>
 
