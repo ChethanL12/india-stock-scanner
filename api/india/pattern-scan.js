@@ -1,275 +1,310 @@
-// Vercel Serverless Function: /api/india/pattern-scan
+// Vercel Serverless Function: /api/india/pattern-scan  ── v2 (swing-point based)
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-// ── India Stock Universes (.NS suffix for Yahoo Finance) ──────────────────────
-const NIFTY50_SYMBOLS = [
-  "RELIANCE.NS","TCS.NS","HDFCBANK.NS","INFY.NS","HINDUNILVR.NS","ICICIBANK.NS",
-  "KOTAKBANK.NS","BHARTIARTL.NS","ITC.NS","SBIN.NS","BAJFINANCE.NS","LICI.NS",
-  "LT.NS","HCLTECH.NS","AXISBANK.NS","ASIANPAINT.NS","MARUTI.NS","SUNPHARMA.NS",
-  "TITAN.NS","ULTRACEMCO.NS","WIPRO.NS","ONGC.NS","NESTLEIND.NS","POWERGRID.NS",
-  "NTPC.NS","TECHM.NS","TATAMOTORS.NS","TATASTEEL.NS","ADANIENT.NS","ADANIPORTS.NS",
-  "JSWSTEEL.NS","BAJAJFINSV.NS","COALINDIA.NS","HDFCLIFE.NS","DIVISLAB.NS",
-  "CIPLA.NS","APOLLOHOSP.NS","BPCL.NS","EICHERMOT.NS","HEROMOTOCO.NS",
-  "SBILIFE.NS","BRITANNIA.NS","DRREDDY.NS","SHRIRAMFIN.NS","GRASIM.NS",
-  "TATACONSUM.NS","M&M.NS","INDUSINDBK.NS","HINDALCO.NS","BEL.NS",
-];
+// ── NSE Universes ─────────────────────────────────────────────────────────────
+const NIFTY50 = [
+  "RELIANCE","TCS","HDFCBANK","BHARTIARTL","ICICIBANK","INFOSYS","SBIN","HINDUNILVR","LICI",
+  "ITC","KOTAKBANK","LT","M&M","AXISBANK","BAJFINANCE","HCLTECH","TITAN","ASIANPAINT","WIPRO",
+  "NESTLEIND","ULTRACEMCO","MARUTI","SUNPHARMA","INDUSINDBK","NTPC","POWERGRID","BAJAJFINSV",
+  "TECHM","JSWSTEEL","ADANIENT","ADANIGREEN","ADANIPORTS","DIVISLAB","COALINDIA","CIPLA",
+  "ONGC","BPCL","BRITANNIA","EICHERMOT","TATACONSUM","GRASIM","HEROMOTOCO","HINDALCO",
+  "SBILIFE","DRREDDY","HDFCLIFE","APOLLOHOSP","BAJAJ-AUTO","TATAMOTORS","TATASTEEEL",
+].map(s => `${s}.NS`);
 
-const NIFTY100_SYMBOLS = [
-  ...NIFTY50_SYMBOLS,
-  "SIEMENS.NS","PIDILITIND.NS","HAVELLS.NS","DABUR.NS","BERGEPAINT.NS","MARICO.NS",
-  "LUPIN.NS","TORNTPHARM.NS","BOSCHLTD.NS","COLPAL.NS","MCDOWELL-N.NS","AMBUJACEM.NS",
-  "ABB.NS","MUTHOOTFIN.NS","MOTHERSON.NS","CHOLAFIN.NS","TATAPOWER.NS","RECLTD.NS",
-  "ZYDUSLIFE.NS","BAJAJ-AUTO.NS","TRENT.NS","DMART.NS","PAGEIND.NS","NAUKRI.NS",
-  "BANKBARODA.NS","PNB.NS","CANBK.NS","UNIONBANK.NS","INDHOTEL.NS","IRCTC.NS",
-  "HAL.NS","BHEL.NS","SAIL.NS","NHPC.NS","SJVN.NS","IRFC.NS","PFC.NS",
-  "GMRINFRA.NS","OBEROIRLTY.NS","DLF.NS","PRESTIGE.NS","GODREJPROP.NS",
-  "LODHA.NS","ABBOTINDIA.NS","AUROPHARMA.NS","ALKEM.NS","LALPATHLAB.NS","METROPOLIS.NS",
-  "IPCALAB.NS","CONCOR.NS",
-];
+const NIFTY100_EXTRA = [
+  "SIEMENS","ABB","HAVELLS","PIDILITIND","BERGEPAINT","DABUR","MARICO","COLPAL","MCDOWELL-N",
+  "GLAXO","LUPIN","TORNTPHARM","BIOCON","ALKEM","AMBUJACEM","SHREECEM","GAIL","IOC","HINDPETRO",
+  "VEDL","HINDZINC","NATIONALUM","NMDC","SAIL","JSWENERGY","TATAPOWER","ADANIPOWER","ADANITRANS",
+  "ATGL","CANBK","BANKBARODA","PNB","UNIONBANK","IDFC","BANDHANBNK","MUTHOOTFIN","CHOLAFIN",
+  "BAJAJHLDNG","LICHSGFIN","PFC","RECLTD","IRFC","ZOMATO","NYKAA","POLICYBZR","PAYTM","DMART",
+  "TRENT","CAMS","CDSL","BSE","MCX","IRCTC","INDIANB","FEDERALBNK","IDFCFIRSTB","AUBANK",
+].map(s => `${s}.NS`);
 
-const NIFTY500_SYMBOLS = [
-  ...NIFTY100_SYMBOLS,
-  "PERSISTENT.NS","LTIM.NS","MPHASIS.NS","COFORGE.NS","KPITTECH.NS","LTTS.NS","OFSS.NS",
-  "ZOMATO.NS","PAYTM.NS","NYKAA.NS","POLICYBZR.NS","DELHIVERY.NS","MAPMYINDIA.NS",
-  "IXIGO.NS","ESCORTS.NS","BHARATFORG.NS","APOLLOTYRE.NS","BALKRISIND.NS","EXIDEIND.NS",
-  "VBL.NS","UNITDSPR.NS","RADICO.NS","UBL.NS","JUBLFOOD.NS","DEVYANI.NS","WESTLIFE.NS",
-  "SUPREMEIND.NS","ASTRAL.NS","POLYCAB.NS","KEI.NS","APLAPOLLO.NS","RATNAMANI.NS",
-  "VOLTAS.NS","BLUESTARCO.NS","CROMPTON.NS","DIXON.NS","KAYNES.NS",
-  "CDSL.NS","BSE.NS","MCX.NS","ANGELONE.NS","MOTILALOFS.NS","HDFCAMC.NS","NIPPONLIFE.NS",
-  "ICICIPRULI.NS","STARHEALTH.NS","ADANIGREEN.NS","TATACOMM.NS","INDIAMART.NS",
-  "AFFLE.NS","TORNTPOWER.NS","CESC.NS","JSPL.NS","HINDZINC.NS","VEDL.NS","NMDC.NS",
-  "INTERGLOBE.NS","BLUEDART.NS","GLAND.NS","PFIZER.NS","MANKIND.NS","GLENMARK.NS",
-  "JKCEMENT.NS","RAMCOCEM.NS","DALBHARAT.NS","CUMMINSIND.NS","THERMAX.NS",
-  "FINCABLES.NS","RVNL.NS","RITES.NS","IRCON.NS","NBCC.NS","NCC.NS",
-  "JSWENERGY.NS","WAAREEENER.NS","ROUTE.NS","JUSTDIAL.NS",
-];
+const NIFTY500_EXTRA = [
+  "AAVAS","ABCAPITAL","ABFRL","APLAPOLLO","ASTRAL","BAJAJCON","BALKRISIND","BATAINDIA","BBTC",
+  "BLUEDART","CEATLTD","CENTURYTEX","CESC","CHAMBLFERT","CONCOR","COROMANDEL","CROMPTON",
+  "CUMMINSIND","DCB","DEEPAKNI","DELTACORP","DIXON","ELGIEQUIP","EMAMILTD","ENGINERSIN",
+  "EQUITASBNK","ESCORTS","EXIDEIND","FINOFINANCE","GALAXYSURF","GNFC","GODREJAGRO","GODREJCP",
+  "GODREJIND","GODREJPROP","GRANULES","GRINDWELL","GSFC","GUJALKALI","GULFINDS","HAPPSTMNDS",
+  "HDFCAMC","HERCULES","HINDCOPPER","HONAUT","IBREALEST","IBULHSGFIN","INDHOTEL","INDOCO",
+  "INDSWFTLAB","INFIBEAM","INTELLECT","IPCALAB","JKCEMENT","JKLAKSHMI","JKPAPER","JKTYRE",
+  "JUBLFOOD","JUBLINGREA","KAJARIACER","KEC","KIMS","KPITTECH","LALPATHLAB","LAXMIMACH",
+  "LINDEINDIA","LTTS","LUXIND","MAHINDCIE","MAHSCOOTER","MANAPPURAM","MASFIN","MAXHEALTH",
+  "MFSL","METROPOLIS","MINDTREE","MPHASIS","MRF","NATCOPHARM","NAVINFLUOR","NBCC","NESCO",
+  "NIACL","NIIT","NLCINDIA","NOCIL","NSLNISP","AARTIIND","PERSISTENT","PFIZER","PHOENIXLTD",
+  "PRESTIGE","PRINCEPIPES","RADICO","RAJESHEXPO","RAMCOCEM","RAYMOND","REDINGTON","RELAXO",
+  "RESPONIND","RITES","ROLEX","ROSSARI","SAFARI","SAREGAMA","SCHAEFFLER","SEQUENT","SHYAMMETL",
+  "SJVN","SKFINDIA","SONACOMS","SOMICONV","SRTRANSFIN","STAR","SUDARSCHEM","SUPPETRO","SUVENPHAR",
+  "SYMPHONY","TANLA","TATACHEM","TATACOFFEE","TATAELXSI","TATAINVEST","TCNSBRANDS","TEAMLEASE",
+  "THERMAX","TIMKEN","TITAGARH","TTKPRESTIG","UCOBANK","UJJIVANSFB","UTIAMC","VAIBHAVGBL",
+  "VARDHACRLC","VGUARD","VINATIORGA","VMART","VOLTAS","VSTIND","WHIRLPOOL","WOCKPHARMA","ZYDUSLIFE",
+].map(s => `${s}.NS`);
 
-const COMPANY_NAMES = {
-  "RELIANCE.NS":"Reliance Industries","TCS.NS":"Tata Consultancy Services",
-  "HDFCBANK.NS":"HDFC Bank","INFY.NS":"Infosys","HINDUNILVR.NS":"Hindustan Unilever",
-  "ICICIBANK.NS":"ICICI Bank","KOTAKBANK.NS":"Kotak Mahindra Bank",
-  "BHARTIARTL.NS":"Bharti Airtel","ITC.NS":"ITC","SBIN.NS":"State Bank of India",
-  "BAJFINANCE.NS":"Bajaj Finance","LICI.NS":"LIC India","LT.NS":"Larsen & Toubro",
-  "HCLTECH.NS":"HCL Technologies","AXISBANK.NS":"Axis Bank",
-  "ASIANPAINT.NS":"Asian Paints","MARUTI.NS":"Maruti Suzuki","SUNPHARMA.NS":"Sun Pharma",
-  "TITAN.NS":"Titan Company","ULTRACEMCO.NS":"UltraTech Cement","WIPRO.NS":"Wipro",
-  "ONGC.NS":"ONGC","NESTLEIND.NS":"Nestle India","POWERGRID.NS":"Power Grid Corp",
-  "NTPC.NS":"NTPC","TECHM.NS":"Tech Mahindra","TATAMOTORS.NS":"Tata Motors",
-  "TATASTEEL.NS":"Tata Steel","ADANIENT.NS":"Adani Enterprises","ADANIPORTS.NS":"Adani Ports",
-  "JSWSTEEL.NS":"JSW Steel","BAJAJFINSV.NS":"Bajaj Finserv","COALINDIA.NS":"Coal India",
-  "HDFCLIFE.NS":"HDFC Life Insurance","DIVISLAB.NS":"Divi's Laboratories",
-  "CIPLA.NS":"Cipla","APOLLOHOSP.NS":"Apollo Hospitals","BPCL.NS":"BPCL",
-  "EICHERMOT.NS":"Eicher Motors","HEROMOTOCO.NS":"Hero MotoCorp",
-  "SBILIFE.NS":"SBI Life Insurance","BRITANNIA.NS":"Britannia Industries",
-  "DRREDDY.NS":"Dr Reddy's Laboratories","SHRIRAMFIN.NS":"Shriram Finance",
-  "GRASIM.NS":"Grasim Industries","TATACONSUM.NS":"Tata Consumer Products",
-  "M&M.NS":"Mahindra & Mahindra","INDUSINDBK.NS":"IndusInd Bank",
-  "HINDALCO.NS":"Hindalco Industries","BEL.NS":"Bharat Electronics",
-  "ZOMATO.NS":"Zomato","HAL.NS":"Hindustan Aeronautics",
-  "RVNL.NS":"Rail Vikas Nigam","IRFC.NS":"Indian Railway Finance",
-  "PFC.NS":"Power Finance Corp","RECLTD.NS":"REC Limited","CDSL.NS":"CDSL","BSE.NS":"BSE",
-};
+const NIFTY100 = [...new Set([...NIFTY50, ...NIFTY100_EXTRA])];
+const NIFTY500 = [...new Set([...NIFTY100, ...NIFTY500_EXTRA])];
 
-function getName(symbol) {
-  return COMPANY_NAMES[symbol] || symbol.replace(".NS", "");
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function linReg(ys) {
-  const n = ys.length;
-  if (n < 2) return { slope: 0, intercept: ys[0] ?? 0, r2: 0 };
-  const xMean = (n - 1) / 2;
-  const yMean = ys.reduce((a, b) => a + b, 0) / n;
+// ── Core Math ─────────────────────────────────────────────────────────────────
+function linReg(points) {
+  const n = points.length;
+  if (n < 2) return { slope: 0, intercept: points[0]?.y ?? 0, r2: 0, yAtX: (x) => points[0]?.y ?? 0 };
+  const xMean = points.reduce((s, p) => s + p.x, 0) / n;
+  const yMean = points.reduce((s, p) => s + p.y, 0) / n;
   let num = 0, den = 0, ssTot = 0;
-  for (let i = 0; i < n; i++) {
-    num += (i - xMean) * (ys[i] - yMean);
-    den += (i - xMean) ** 2;
-    ssTot += (ys[i] - yMean) ** 2;
+  for (const p of points) {
+    num += (p.x - xMean) * (p.y - yMean);
+    den += (p.x - xMean) ** 2;
+    ssTot += (p.y - yMean) ** 2;
   }
-  const slope = den !== 0 ? num / den : 0;
+  const slope = den ? num / den : 0;
   const intercept = yMean - slope * xMean;
-  const ssRes = ys.reduce((acc, y, i) => acc + (y - (slope * i + intercept)) ** 2, 0);
+  const ssRes = points.reduce((s, p) => s + (p.y - (slope * p.x + intercept)) ** 2, 0);
   const r2 = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 0;
-  return { slope, intercept, r2 };
+  return { slope, intercept, r2, yAtX: (x) => slope * x + intercept };
 }
 
-function swingLows(lows, window = 3) {
+function findSwingHighs(bars, window = 5) {
   const out = [];
-  for (let i = window; i < lows.length - window; i++) {
-    const slice = lows.slice(i - window, i + window + 1);
-    if (lows[i] === Math.min(...slice)) out.push({ idx: i, val: lows[i] });
+  for (let i = window; i < bars.length - window; i++) {
+    const h = bars[i].high;
+    let ok = true;
+    for (let j = i - window; j <= i + window; j++) {
+      if (j !== i && bars[j].high >= h) { ok = false; break; }
+    }
+    if (ok) out.push({ idx: i, val: h });
   }
   return out;
 }
 
-function swingHighs(highs, window = 3) {
+function findSwingLows(bars, window = 5) {
   const out = [];
-  for (let i = window; i < highs.length - window; i++) {
-    const slice = highs.slice(i - window, i + window + 1);
-    if (highs[i] === Math.max(...slice)) out.push({ idx: i, val: highs[i] });
+  for (let i = window; i < bars.length - window; i++) {
+    const l = bars[i].low;
+    let ok = true;
+    for (let j = i - window; j <= i + window; j++) {
+      if (j !== i && bars[j].low <= l) { ok = false; break; }
+    }
+    if (ok) out.push({ idx: i, val: l });
   }
   return out;
 }
 
-// ── Pattern Detectors (same algorithms as US version) ─────────────────────────
+// ── Pattern Detectors v2 ──────────────────────────────────────────────────────
+function detectFallingWedge(bars) {
+  if (bars.length < 45) return null;
+  const lookback = Math.min(65, bars.length - 6);
+  const slice = bars.slice(-lookback);
+  const sHighs = findSwingHighs(slice, 5);
+  const sLows  = findSwingLows(slice, 5);
+  if (sHighs.length < 3 || sLows.length < 3) return null;
+  const rH = sHighs.slice(-4), rL = sLows.slice(-4);
+  const highLine = linReg(rH.map(s => ({ x: s.idx, y: s.val })));
+  const lowLine  = linReg(rL.map(s => ({ x: s.idx, y: s.val })));
+  if (highLine.slope >= 0 || lowLine.slope >= 0) return null;
+  if (highLine.slope >= lowLine.slope) return null;
+  if (highLine.r2 < 0.65 || lowLine.r2 < 0.65) return null;
+  const xFirst = Math.min(rH[0].idx, rL[0].idx);
+  const xLast  = Math.max(rH[rH.length-1].idx, rL[rL.length-1].idx);
+  const wStart = highLine.yAtX(xFirst) - lowLine.yAtX(xFirst);
+  const wEnd   = highLine.yAtX(xLast)  - lowLine.yAtX(xLast);
+  if (wStart <= 0 || wEnd <= 0 || wEnd >= wStart) return null;
+  const compression = 1 - wEnd / wStart;
+  if (compression < 0.30 || xLast - xFirst < 15) return null;
+  const lastClose = slice[slice.length - 1].close;
+  const curH = highLine.yAtX(lookback - 1), curL = lowLine.yAtX(lookback - 1);
+  const pos = curH > curL ? (lastClose - curL) / (curH - curL) : 0.5;
+  if (pos > 1.3) return null;
+  const r2Avg = (highLine.r2 + lowLine.r2) / 2;
+  const confidence = Math.round(Math.min(
+    r2Avg * 35 + compression * 35 + Math.min((rH.length + rL.length - 4) * 5, 20) + (pos <= 1.05 ? 10 : 0), 95
+  ));
+  if (confidence < 55) return null;
+  return {
+    name: "Falling Wedge", icon: "📐", confidence, color: "violet",
+    description: `${rH.length} swing highs · ${rL.length} swing lows · Compression: ${(compression*100).toFixed(0)}% · Fit: ${(r2Avg*100).toFixed(0)}% · ${xLast-xFirst} bars`,
+  };
+}
+
 function detectBullFlag(bars) {
-  if (bars.length < 25) return null;
-  const closes = bars.map(b => b.close);
-  const volumes = bars.map(b => b.volume);
-  for (let consLen = 5; consLen <= 20; consLen++) {
+  if (bars.length < 30) return null;
+  for (let flagLen = 5; flagLen <= 18; flagLen++) {
     for (let poleLen = 5; poleLen <= 15; poleLen++) {
-      const totalNeed = poleLen + consLen;
-      if (bars.length < totalNeed + 5) continue;
-      const poleStart = bars.length - totalNeed - 1;
-      const poleEnd = bars.length - consLen - 1;
-      const consStart = poleEnd;
-      const poleGain = (closes[poleEnd] - closes[poleStart]) / closes[poleStart] * 100;
-      if (poleGain < 7) continue;
-      const consPrices = closes.slice(consStart);
-      const consHigh = Math.max(...consPrices);
-      const consLow = Math.min(...consPrices);
-      const consRange = (consHigh - consLow) / consHigh * 100;
-      if (consRange > 8) continue;
-      const consReg = linReg(consPrices);
-      const flagDrift = (consReg.slope / closes[consStart]) * 100;
-      if (flagDrift > 0.5) continue;
-      const poleVol = volumes.slice(poleStart, poleEnd).reduce((a, b) => a + b, 0) / poleLen;
-      const consVol = volumes.slice(consStart).reduce((a, b) => a + b, 0) / consLen;
-      const volRatio = consVol > 0 ? poleVol / consVol : 1;
-      const confidence = Math.round(Math.min(Math.min(poleGain * 4, 50) + Math.max(0, (8 - consRange) * 3) + Math.min(volRatio * 5, 20), 95));
-      if (confidence < 50) continue;
-      return { name: "Bull Flag", icon: "🏳️", confidence, description: `Pole: +${poleGain.toFixed(1)}% in ${poleLen} bars · Consolidation: ${consRange.toFixed(1)}% · Vol contraction: ${volRatio.toFixed(1)}x`, color: "emerald" };
+      const needed = poleLen + flagLen + 3;
+      if (bars.length < needed) continue;
+      const poleStart = bars.length - needed, poleEnd = poleStart + poleLen;
+      const flagBars = bars.slice(poleEnd);
+      const poleOpen = bars[poleStart].close, poleClose = bars[poleEnd - 1].close;
+      const poleGain = (poleClose - poleOpen) / poleOpen * 100;
+      if (poleGain < 8) continue;
+      const poleSlice = bars.slice(poleStart, poleEnd);
+      const poleMin = Math.min(...poleSlice.map(b => b.close));
+      if (poleMin < poleOpen + (poleClose - poleOpen) * 0.25) continue;
+      const flagHighs = flagBars.map(b => b.high), flagLows = flagBars.map(b => b.low);
+      const fHigh = Math.max(...flagHighs), fLow = Math.min(...flagLows);
+      const flagRange = (fHigh - fLow) / fHigh * 100;
+      if (flagRange > 7) continue;
+      const poleHeight = poleClose - poleOpen;
+      const flagPullback = poleClose - Math.min(...flagBars.map(b => b.close));
+      if (flagPullback > poleHeight * 0.5) continue;
+      const hReg = linReg(flagHighs.map((h, i) => ({ x: i, y: h })));
+      const lReg = linReg(flagLows.map((l, i) => ({ x: i, y: l })));
+      const maxSlope = poleClose * 0.004;
+      if (hReg.slope > maxSlope || lReg.slope > maxSlope) continue;
+      const poleVol = poleSlice.reduce((s, b) => s + b.volume, 0) / poleLen;
+      const flagVol = flagBars.reduce((s, b) => s + b.volume, 0) / flagLen;
+      const volContracting = flagVol < poleVol * 0.85;
+      const gainScore = Math.min(poleGain * 3, 40);
+      const tightScore = Math.max(0, (7 - flagRange) * 4);
+      const volScore = volContracting ? 20 : 5;
+      const pbScore = Math.max(0, (0.5 - flagPullback / poleHeight) * 20);
+      const confidence = Math.round(Math.min(gainScore + tightScore + volScore + pbScore, 95));
+      if (confidence < 55) continue;
+      return {
+        name: "Bull Flag", icon: "🏳️", confidence, color: "emerald",
+        description: `Pole: +${poleGain.toFixed(1)}% in ${poleLen} bars · Flag range: ${flagRange.toFixed(1)}% · Pullback: ${(flagPullback/poleHeight*100).toFixed(0)}% · Vol: ${volContracting ? "contracting ✓" : "expanding"}`,
+      };
     }
   }
   return null;
 }
 
-function detectFallingWedge(bars) {
-  if (bars.length < 25) return null;
-  const lookback = Math.min(40, bars.length - 2);
-  const slice = bars.slice(-lookback);
-  const highs = slice.map(b => b.high);
-  const lows = slice.map(b => b.low);
-  const highReg = linReg(highs);
-  const lowReg = linReg(lows);
-  if (highReg.slope >= 0 || lowReg.slope >= 0) return null;
-  if (highReg.slope >= lowReg.slope) return null;
-  const startWidth = highReg.intercept - lowReg.intercept;
-  const endWidth = (highReg.slope * (lookback - 1) + highReg.intercept) - (lowReg.slope * (lookback - 1) + lowReg.intercept);
-  if (startWidth <= 0 || endWidth <= 0) return null;
-  const convergence = 1 - endWidth / startWidth;
-  if (convergence < 0.25) return null;
-  const lastClose = slice[slice.length - 1].close;
-  const lastHigh = highReg.slope * (lookback - 1) + highReg.intercept;
-  const lastLow = lowReg.slope * (lookback - 1) + lowReg.intercept;
-  const position = (lastClose - lastLow) / (lastHigh - lastLow);
-  const r2Score = (highReg.r2 + lowReg.r2) / 2;
-  const confidence = Math.min(Math.round(convergence * 40) + Math.round(r2Score * 30) + Math.round(position * 25), 95);
-  if (confidence < 45) return null;
-  return { name: "Falling Wedge", icon: "📐", confidence, description: `Convergence: ${(convergence * 100).toFixed(0)}% · Fit: ${(r2Score * 100).toFixed(0)}% · Position: ${(position * 100).toFixed(0)}%`, color: "violet" };
-}
-
-function detectRisingWedge(bars) {
-  if (bars.length < 25) return null;
-  const lookback = Math.min(40, bars.length - 2);
-  const slice = bars.slice(-lookback);
-  const highReg = linReg(slice.map(b => b.high));
-  const lowReg = linReg(slice.map(b => b.low));
-  if (highReg.slope <= 0 || lowReg.slope <= 0) return null;
-  if (lowReg.slope <= highReg.slope) return null;
-  const startWidth = highReg.intercept - lowReg.intercept;
-  const endWidth = (highReg.slope * (lookback - 1) + highReg.intercept) - (lowReg.slope * (lookback - 1) + lowReg.intercept);
-  if (startWidth <= 0 || endWidth <= 0) return null;
-  const convergence = 1 - endWidth / startWidth;
-  if (convergence < 0.25) return null;
-  const r2Score = (highReg.r2 + lowReg.r2) / 2;
-  const confidence = Math.round(Math.min(convergence * 40 + r2Score * 30 + 20, 95));
-  if (confidence < 45) return null;
-  return { name: "Rising Wedge", icon: "⚠️", confidence, description: `Bearish · Convergence: ${(convergence * 100).toFixed(0)}% · Fit: ${(r2Score * 100).toFixed(0)}%`, color: "amber" };
-}
-
 function detectAscendingTriangle(bars) {
-  if (bars.length < 20) return null;
-  const lookback = Math.min(35, bars.length - 2);
+  if (bars.length < 40) return null;
+  const lookback = Math.min(70, bars.length - 6);
   const slice = bars.slice(-lookback);
-  const sHighs = swingHighs(slice.map(b => b.high), 2);
-  const sLows = swingLows(slice.map(b => b.low), 2);
-  if (sHighs.length < 2 || sLows.length < 2) return null;
-  const highVals = sHighs.map(s => s.val);
-  const maxH = Math.max(...highVals);
-  const minH = Math.min(...highVals);
-  const resistanceFlat = (maxH - minH) / maxH * 100;
-  if (resistanceFlat > 3.5) return null;
-  const lowReg = linReg(sLows.map(s => s.val));
-  if (lowReg.slope <= 0) return null;
+  const sHighs = findSwingHighs(slice, 4), sLows = findSwingLows(slice, 4);
+  if (sHighs.length < 3 || sLows.length < 3) return null;
+  const rH = sHighs.slice(-4), rL = sLows.slice(-4);
+  const maxH = Math.max(...rH.map(s => s.val)), minH = Math.min(...rH.map(s => s.val));
+  const spread = (maxH - minH) / maxH * 100;
+  if (spread > 2.5) return null;
+  const lowLine = linReg(rL.map(s => ({ x: s.idx, y: s.val })));
+  if (lowLine.slope <= 0 || lowLine.r2 < 0.65) return null;
+  const span = Math.max(rH[rH.length-1].idx, rL[rL.length-1].idx) - Math.min(rH[0].idx, rL[0].idx);
+  if (span < 18) return null;
   const lastClose = slice[slice.length - 1].close;
-  const nearResistance = (lastClose / maxH) * 100;
-  const confidence = Math.min(
-    Math.round(Math.max(0, (3.5 - resistanceFlat) / 3.5 * 40)) +
-    Math.round(Math.min(lowReg.slope / slice[0].low * 5000, 30)) +
-    (nearResistance > 96 ? 25 : nearResistance > 92 ? 15 : 5) + 5, 95);
-  if (confidence < 45) return null;
-  return { name: "Ascending Triangle", icon: "🔺", confidence, description: `Resistance: ₹${minH.toFixed(0)}–₹${maxH.toFixed(0)} · Rising lows · At ${nearResistance.toFixed(1)}% of resistance`, color: "sky" };
+  const nearness = lastClose / maxH;
+  if (nearness < 0.92) return null;
+  const flatScore = Math.round((2.5 - spread) / 2.5 * 40);
+  const slopeScore = Math.round(Math.min(lowLine.r2 * 30, 30));
+  const nearScore = nearness > 0.97 ? 25 : nearness > 0.94 ? 15 : 8;
+  const confidence = Math.min(flatScore + slopeScore + nearScore, 95);
+  if (confidence < 55) return null;
+  return {
+    name: "Ascending Triangle", icon: "🔺", confidence, color: "sky",
+    description: `Resistance: ₹${minH.toFixed(0)}–₹${maxH.toFixed(0)} (${spread.toFixed(1)}% spread) · Rising lows (R²=${(lowLine.r2*100).toFixed(0)}%) · Price at ${(nearness*100).toFixed(1)}% of resistance`,
+  };
 }
 
 function detectDoubleBottom(bars) {
-  if (bars.length < 30) return null;
-  const lookback = Math.min(60, bars.length - 2);
+  if (bars.length < 45) return null;
+  const lookback = Math.min(90, bars.length - 6);
   const slice = bars.slice(-lookback);
-  const lows = slice.map(b => b.low);
-  const closes = slice.map(b => b.close);
-  const sLows = swingLows(lows, 3);
-  if (sLows.length < 2) return null;
-  const sorted = [...sLows].sort((a, b) => a.val - b.val).slice(0, 4);
-  for (let i = 0; i < sorted.length - 1; i++) {
-    for (let j = i + 1; j < sorted.length; j++) {
-      const [first, second] = sorted[i].idx < sorted[j].idx ? [sorted[i], sorted[j]] : [sorted[j], sorted[i]];
-      const diff = Math.abs(first.val - second.val) / first.val * 100;
-      if (diff > 4 || second.idx - first.idx < 5) continue;
-      const peakBetween = Math.max(...slice.slice(first.idx, second.idx).map(b => b.high));
-      const peakLift = (peakBetween - first.val) / first.val * 100;
-      if (peakLift < 5) continue;
-      const recovery = (closes[closes.length - 1] - second.val) / (peakBetween - second.val) * 100;
-      const confidence = Math.min(Math.round(Math.max(0, (4 - diff) / 4 * 30)) + Math.round(Math.min(peakLift * 2, 30)) + Math.round(Math.min(recovery * 0.35, 35)), 95);
-      if (confidence < 45) continue;
-      return { name: "Double Bottom", icon: "🔁", confidence, description: `Two lows: ~₹${first.val.toFixed(0)} · Neckline lift: +${peakLift.toFixed(1)}% · Recovery: ${Math.min(recovery, 100).toFixed(0)}%`, color: "cyan" };
+  const sLows = findSwingLows(slice, 6), sHighs = findSwingHighs(slice, 4);
+  if (sLows.length < 2 || sHighs.length < 1) return null;
+  const recentL = sLows.slice(-5);
+  for (let i = 0; i < recentL.length - 1; i++) {
+    for (let j = i + 1; j < recentL.length; j++) {
+      const L1 = recentL[i], L2 = recentL[j];
+      if (L2.idx - L1.idx < 10) continue;
+      const diff = Math.abs(L1.val - L2.val) / L1.val * 100;
+      if (diff > 3) continue;
+      if (L2.val < L1.val * 0.975) continue;
+      const between = sHighs.filter(h => h.idx > L1.idx && h.idx < L2.idx);
+      if (between.length === 0) continue;
+      const neckline = Math.max(...between.map(h => h.val));
+      const lift = (neckline - L1.val) / L1.val * 100;
+      if (lift < 5) continue;
+      const lastClose = slice[slice.length - 1].close;
+      const aboveNeck = lastClose > neckline;
+      const recovery = Math.min(((lastClose - L2.val) / (neckline - L2.val)) * 100, 120);
+      if (recovery < 45) continue;
+      const symScore = Math.round((3 - diff) / 3 * 35);
+      const neckScore = Math.round(Math.min(lift * 2, 30));
+      const recScore = aboveNeck ? 30 : Math.round(Math.min(recovery * 0.25, 25));
+      const confidence = Math.min(symScore + neckScore + recScore, 95);
+      if (confidence < 55) continue;
+      return {
+        name: "Double Bottom", icon: "🔁", confidence, color: "cyan",
+        description: `Lows: ₹${L1.val.toFixed(0)} & ₹${L2.val.toFixed(0)} (${diff.toFixed(1)}% apart) · Neckline: ₹${neckline.toFixed(0)} (+${lift.toFixed(1)}%) · ${aboveNeck ? "✓ Above neckline" : `Recovery: ${recovery.toFixed(0)}%`}`,
+      };
     }
   }
   return null;
 }
 
 function detectCupHandle(bars) {
-  if (bars.length < 45) return null;
-  const lookback = Math.min(80, bars.length - 2);
+  if (bars.length < 55) return null;
+  const lookback = Math.min(90, bars.length - 6);
   const slice = bars.slice(-lookback);
-  const closes = slice.map(b => b.close);
-  const cupLen = Math.floor(lookback * 0.7);
-  const cupSlice = closes.slice(0, cupLen);
-  const handleSlice = closes.slice(cupLen);
-  const cupLeft = cupSlice[0];
-  const cupRight = cupSlice[cupSlice.length - 1];
-  const cupBot = Math.min(...cupSlice);
-  const leftDepth = (cupLeft - cupBot) / cupLeft * 100;
-  const rightDepth = (cupRight - cupBot) / cupRight * 100;
-  if (leftDepth < 8 || rightDepth < 8) return null;
-  const symmetry = 100 - Math.abs(leftDepth - rightDepth) * 5;
-  if (symmetry < 50) return null;
-  const handleHigh = Math.max(...handleSlice);
-  const handleLow = Math.min(...handleSlice);
-  const handleRange = (handleHigh - handleLow) / handleHigh * 100;
-  if (handleRange > 10) return null;
-  const handlePullback = (cupRight - handleLow) / cupRight * 100;
-  if (handlePullback > 10) return null;
-  const confidence = Math.min(Math.round(Math.min(leftDepth * 1.5, 30)) + Math.round((symmetry - 50) / 50 * 30) + Math.round(Math.max(0, (10 - handleRange) * 3)) + 5, 95);
-  if (confidence < 45) return null;
-  return { name: "Cup & Handle", icon: "☕", confidence, description: `Cup depth: ${leftDepth.toFixed(1)}% · Symmetry: ${symmetry.toFixed(0)}% · Handle range: ${handleRange.toFixed(1)}%`, color: "orange" };
+  const cupLen = Math.floor(lookback * 0.70);
+  const cupSlice = slice.slice(0, cupLen), hndSlice = slice.slice(cupLen);
+  if (cupLen < 25 || hndSlice.length < 5) return null;
+  const leftRim  = cupSlice.slice(0, 5).reduce((s, b) => s + b.close, 0) / 5;
+  const rightRim = cupSlice.slice(-5).reduce((s, b) => s + b.close, 0) / 5;
+  const rimDiff  = Math.abs(leftRim - rightRim) / leftRim * 100;
+  if (rimDiff > 6) return null;
+  const rimLevel = (leftRim + rightRim) / 2;
+  const cupBot = Math.min(...cupSlice.map(b => b.low));
+  const depth = (rimLevel - cupBot) / rimLevel * 100;
+  if (depth < 12) return null;
+  const midStart = Math.floor(cupLen * 0.30), midEnd = Math.floor(cupLen * 0.70);
+  const midSlice = cupSlice.slice(midStart, midEnd);
+  const midRange = (Math.max(...midSlice.map(b => b.high)) - Math.min(...midSlice.map(b => b.low))) / cupBot * 100;
+  if (midRange > depth * 0.60) return null;
+  const hndHigh = Math.max(...hndSlice.map(b => b.high)), hndLow = Math.min(...hndSlice.map(b => b.low));
+  const hndRange = (hndHigh - hndLow) / hndHigh * 100;
+  if (hndRange > 10) return null;
+  const hndDrop = (rightRim - hndLow) / rightRim * 100;
+  if (hndDrop > 9) return null;
+  const lastClose = slice[slice.length - 1].close;
+  const nearRim = lastClose / rightRim;
+  if (nearRim < 0.94) return null;
+  const symScore  = Math.round((6 - rimDiff) / 6 * 30);
+  const depScore  = Math.round(Math.min(depth * 1.5, 30));
+  const hndScore  = Math.round((10 - hndRange) * 2.5);
+  const rimScore  = nearRim > 1.0 ? 15 : nearRim > 0.97 ? 10 : 5;
+  const confidence = Math.min(symScore + depScore + hndScore + rimScore, 95);
+  if (confidence < 55) return null;
+  return {
+    name: "Cup & Handle", icon: "☕", confidence, color: "orange",
+    description: `Cup depth: ${depth.toFixed(1)}% · Rim symmetry: ${(100-rimDiff).toFixed(0)}% · Handle: ${hndRange.toFixed(1)}% range · Price at ${(nearRim*100).toFixed(0)}% of rim`,
+  };
 }
 
-// ── Yahoo Finance Fetchers ─────────────────────────────────────────────────────
+function detectRisingWedge(bars) {
+  if (bars.length < 45) return null;
+  const lookback = Math.min(65, bars.length - 6);
+  const slice = bars.slice(-lookback);
+  const sHighs = findSwingHighs(slice, 5), sLows = findSwingLows(slice, 5);
+  if (sHighs.length < 3 || sLows.length < 3) return null;
+  const rH = sHighs.slice(-4), rL = sLows.slice(-4);
+  const highLine = linReg(rH.map(s => ({ x: s.idx, y: s.val })));
+  const lowLine  = linReg(rL.map(s => ({ x: s.idx, y: s.val })));
+  if (highLine.slope <= 0 || lowLine.slope <= 0) return null;
+  if (lowLine.slope <= highLine.slope * 1.1) return null;
+  if (highLine.r2 < 0.65 || lowLine.r2 < 0.65) return null;
+  const xFirst = Math.min(rH[0].idx, rL[0].idx), xLast = Math.max(rH[rH.length-1].idx, rL[rL.length-1].idx);
+  const wStart = highLine.yAtX(xFirst) - lowLine.yAtX(xFirst);
+  const wEnd   = highLine.yAtX(xLast)  - lowLine.yAtX(xLast);
+  if (wStart <= 0 || wEnd <= 0 || wEnd >= wStart) return null;
+  const compression = 1 - wEnd / wStart;
+  if (compression < 0.30 || xLast - xFirst < 15) return null;
+  const r2Avg = (highLine.r2 + lowLine.r2) / 2;
+  const confidence = Math.round(Math.min(
+    r2Avg * 35 + compression * 35 + Math.min((rH.length + rL.length - 4) * 5, 25), 95
+  ));
+  if (confidence < 55) return null;
+  return {
+    name: "Rising Wedge", icon: "⚠️", confidence, color: "amber",
+    description: `Bearish · ${rH.length} swing highs · ${rL.length} swing lows · Compression: ${(compression*100).toFixed(0)}% · Fit: ${(r2Avg*100).toFixed(0)}%`,
+  };
+}
+
+// ── Yahoo Finance ─────────────────────────────────────────────────────────────
 async function fetchChart(symbol) {
-  const url = `${YAHOO_BASE}/v8/finance/chart/${symbol}?interval=1d&range=6mo&includePrePost=false`;
+  const url = `${YAHOO_BASE}/v8/finance/chart/${symbol}?interval=1d&range=9mo&includePrePost=false`;
   try {
     const resp = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(9000) });
     if (!resp.ok) return [];
@@ -280,21 +315,24 @@ async function fetchChart(symbol) {
     return result.timestamp.map((ts, i) => ({
       open: open[i] ?? 0, high: high[i] ?? 0, low: low[i] ?? 0,
       close: close[i] ?? 0, volume: volume[i] ?? 0, timestamp: ts,
-    })).filter(b => b.close > 0);
+    })).filter(b => b.close > 0 && b.high > 0 && b.low > 0);
   } catch { return []; }
 }
 
-async function batchQuote(symbols) {
-  const url = `${YAHOO_BASE}/v8/finance/spark?symbols=${symbols.join(",")}&range=1d&interval=5m`;
+async function batchQuote(syms) {
+  const url = `${YAHOO_BASE}/v8/finance/spark?symbols=${syms.join(",")}&range=1d&interval=5m`;
   try {
     const resp = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(12000) });
     if (!resp.ok) return new Map();
     const json = await resp.json();
     const map = new Map();
     for (const d of Object.values(json)) {
-      if (d && d.close?.length > 0) {
+      if (d?.close?.length > 0) {
         const price = d.close[d.close.length - 1] ?? d.previousClose;
-        map.set(d.symbol, { price, changePct: d.previousClose > 0 ? ((price - d.previousClose) / d.previousClose) * 100 : 0 });
+        map.set(d.symbol, {
+          price, name: d.shortName ?? d.symbol,
+          changePct: d.previousClose > 0 ? ((price - d.previousClose) / d.previousClose) * 100 : 0,
+        });
       }
     }
     return map;
@@ -305,24 +343,31 @@ async function batchQuoteAll(symbols) {
   const all = new Map();
   const chunks = [];
   for (let i = 0; i < symbols.length; i += 20) chunks.push(symbols.slice(i, i + 20));
-  for (let i = 0; i < chunks.length; i += 8) {
-    const wave = chunks.slice(i, i + 8);
-    const maps = await Promise.all(wave.map(c => batchQuote(c)));
+  for (let i = 0; i < chunks.length; i += 6) {
+    const maps = await Promise.all(chunks.slice(i, i + 6).map(batchQuote));
     for (const m of maps) for (const [k, v] of m) all.set(k, v);
-    if (i + 8 < chunks.length) await new Promise(r => setTimeout(r, 150));
+    if (i + 6 < chunks.length) await new Promise(r => setTimeout(r, 200));
   }
   return all;
 }
 
 function getUniverse(universe, customSymbols) {
-  if (universe === "nifty50") return NIFTY50_SYMBOLS;
-  if (universe === "nifty100") return NIFTY100_SYMBOLS;
-  if (universe === "nifty500") return [...new Set(NIFTY500_SYMBOLS)];
-  if (universe === "custom") return customSymbols.length > 0 ? customSymbols : NIFTY50_SYMBOLS;
-  return NIFTY50_SYMBOLS;
+  if (universe === "nifty50") return NIFTY50;
+  if (universe === "nifty100") return NIFTY100;
+  if (universe === "nifty500") return NIFTY500;
+  if (universe === "custom") return customSymbols.length > 0 ? customSymbols : NIFTY50;
+  return NIFTY100;
 }
 
-// ── Handler ────────────────────────────────────────────────────────────────────
+function calcRsi(closes) {
+  if (closes.length < 15) return 50;
+  const ch = closes.slice(1).map((p, i) => p - closes[i]).slice(-14);
+  const g = ch.filter(c => c > 0).reduce((a, b) => a + b, 0) / 14;
+  const l = Math.abs(ch.filter(c => c < 0).reduce((a, b) => a + b, 0)) / 14;
+  return l === 0 ? 100 : 100 - 100 / (1 + g / l);
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -334,8 +379,8 @@ export default async function handler(req, res) {
     universe = "nifty50",
     symbols: customSymbols = [],
     patterns: selectedPatterns = ["bullFlag","fallingWedge","ascendingTriangle","doubleBottom","cupHandle","risingWedge"],
-    minConfidence = 60,
-    maxSymbols = 60,
+    minConfidence = 55,
+    maxSymbols = 80,
   } = req.body ?? {};
 
   try {
@@ -347,66 +392,42 @@ export default async function handler(req, res) {
       .slice(0, Math.min(maxSymbols, allSymbols.length))
       .map(([sym]) => sym);
 
+    const detectors = {
+      bullFlag: detectBullFlag,
+      fallingWedge: detectFallingWedge,
+      ascendingTriangle: detectAscendingTriangle,
+      doubleBottom: detectDoubleBottom,
+      cupHandle: detectCupHandle,
+      risingWedge: detectRisingWedge,
+    };
+
     const matches = [];
-    const CONCURRENCY = 8;
-
-    for (let i = 0; i < ranked.length; i += CONCURRENCY) {
-      const batch = ranked.slice(i, i + CONCURRENCY);
-      const settled = await Promise.allSettled(batch.map(async symbol => {
+    for (let i = 0; i < ranked.length; i += 6) {
+      const settled = await Promise.allSettled(ranked.slice(i, i + 6).map(async symbol => {
         const bars = await fetchChart(symbol);
-        if (bars.length < 25) return null;
-
+        if (bars.length < 45) return null;
         const closes = bars.map(b => b.close);
         const volumes = bars.map(b => b.volume);
-        const rsi = (() => {
-          if (closes.length < 15) return 50;
-          const changes = closes.slice(1).map((p, i) => p - closes[i]);
-          const recent = changes.slice(-14);
-          const avgGain = recent.filter(c => c > 0).reduce((a, b) => a + b, 0) / 14;
-          const avgLoss = Math.abs(recent.filter(c => c < 0).reduce((a, b) => a + b, 0)) / 14;
-          return avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-        })();
-
-        const last20Vol = volumes.slice(-21, -1);
-        const avgVol20 = last20Vol.reduce((a, b) => a + b, 0) / 20;
-        const volumeRatio = avgVol20 > 0 ? volumes[volumes.length - 1] / avgVol20 : 1;
-
-        const detectors = {
-          bullFlag: detectBullFlag,
-          fallingWedge: detectFallingWedge,
-          ascendingTriangle: detectAscendingTriangle,
-          doubleBottom: detectDoubleBottom,
-          cupHandle: detectCupHandle,
-          risingWedge: detectRisingWedge,
-        };
-
-        const foundPatterns = [];
+        const rsi = calcRsi(closes);
+        const avg20v = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+        const volRatio = avg20v > 0 ? volumes[volumes.length - 1] / avg20v : 1;
+        const found = [];
         for (const key of selectedPatterns) {
-          if (detectors[key]) {
-            const result = detectors[key](bars);
-            if (result && result.confidence >= minConfidence) foundPatterns.push(result);
-          }
+          if (!detectors[key]) continue;
+          const r = detectors[key](bars);
+          if (r && r.confidence >= minConfidence) found.push(r);
         }
-
-        if (foundPatterns.length === 0) return null;
-
-        const q = quoteMap.get(symbol) ?? { price: closes[closes.length - 1], changePct: 0 };
-
+        if (found.length === 0) return null;
+        const q = quoteMap.get(symbol) ?? { price: closes[closes.length-1], changePct: 0, name: symbol };
         return {
-          symbol,
-          name: getName(symbol),
-          price: +q.price.toFixed(2),
-          changePct: +q.changePct.toFixed(2),
-          rsi: +rsi.toFixed(1),
-          volumeRatio: +volumeRatio.toFixed(2),
-          volume: Math.round(volumes[volumes.length - 1]),
-          avgVolume20: Math.round(avgVol20),
-          patterns: foundPatterns.sort((a, b) => b.confidence - a.confidence),
-          topPattern: foundPatterns[0].name,
-          topConfidence: foundPatterns[0].confidence,
+          symbol, name: q.name ?? symbol,
+          price: +q.price.toFixed(2), changePct: +q.changePct.toFixed(2),
+          rsi: +rsi.toFixed(1), volumeRatio: +volRatio.toFixed(2),
+          volume: Math.round(volumes[volumes.length - 1]), avgVolume20: Math.round(avg20v),
+          patterns: found.sort((a, b) => b.confidence - a.confidence),
+          topPattern: found[0].name, topConfidence: found[0].confidence,
         };
       }));
-
       for (const r of settled) {
         if (r.status === "fulfilled" && r.value) matches.push(r.value);
       }
@@ -415,14 +436,12 @@ export default async function handler(req, res) {
     matches.sort((a, b) => b.topConfidence - a.topConfidence || b.patterns.length - a.patterns.length);
 
     return res.status(200).json({
-      matches,
-      scannedAt: new Date().toISOString(),
-      totalScanned: ranked.length,
-      totalMatched: matches.length,
-      universe,
+      matches, scannedAt: new Date().toISOString(),
+      totalScanned: ranked.length, totalMatched: matches.length,
+      universe, note: "v2 — swing-point based detection",
     });
   } catch (err) {
     console.error("India pattern scan error:", err);
-    return res.status(500).json({ error: err.message ?? "Pattern scan failed" });
+    return res.status(500).json({ error: err.message ?? "Scan failed" });
   }
 }
